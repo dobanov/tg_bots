@@ -75,7 +75,7 @@ def download_video(url, output_file):
     try:
         with open(os.devnull, 'w') as devnull:
             subprocess.run(
-                ['yt-dlp', '-f', 'best[height<=720][ext=mp4]', '-o', output_file, '--force-overwrites', url],
+                ['yt-dlp', '-f', 'bv*[height<=720]+ba/best', '--merge-output-format', 'mp4', '-o', output_file, '--force-overwrites', url],
                 stdout=devnull, stderr=devnull, check=True
             )
         logger.info(f"Видео по URL {url} успешно загружено в файл {output_file}.")
