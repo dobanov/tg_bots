@@ -17,6 +17,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Отключаем логи для библиотеки httpx
+httpx_logger = logging.getLogger("httpx")
+httpx_logger.setLevel(logging.WARNING)  # Показывать только предупреждения и ошибки
+
 # Ваш Telegram токен
 TOKEN = "YOUR:TOKEN"
 YOUTUBE_REGEX = r"^https://www\.youtube\.com/watch\?v=[a-zA-Z0-9_-]{1,15}$"
