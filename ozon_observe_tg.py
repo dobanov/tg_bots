@@ -135,7 +135,7 @@ async def parse_page(url):
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
 
-    service = Service("/path/to/chromedriver/chromedriver")
+    service = Service("/home/ubuntu/chromedriver/chromedriver")
     driver = webdriver.Chrome(service=service, options=options)
 
     results = []
@@ -288,6 +288,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/stop - Остановить отслеживание текущего URL.\n"
         "/list - Показать список ваших отслеживаемых URL.\n"
         "/tasks - Показать список активных отслеживаемых задач.\n"
+        "/remove - Удалить url из отслеживания.\n"
         "/help - Показать это сообщение.\n\n"
         "Просто отправьте ссылку на страницу Ozon, чтобы начать её отслеживать!"
     )
@@ -324,6 +325,41 @@ async def tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(message)
 
+# Обработчик команды /remove
+async def remove_url_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    if not context.args:
+        await update.message.reply_text("Пожалуйста, укажите URL для удаления. Пример: /remove https://www.ozon.ru/...")
+        return
+
+    url_to_remove = context.args[0].strip()
+    removed = False
+
+    # Удаление URL из файла
+    try:
+        with open(URLS_FILE, "r") as f:
+            lines = f.readlines()
+        with open(URLS_FILE, "w") as f:
+            for line in lines:
+                stored_user_id, stored_url, _ = line.strip().split("|", 2)
+                if stored_user_id == user_id and stored_url == url_to_remove:
+                    removed = True
+                else:
+                    f.write(line)
+        if removed:
+            # Остановка задачи отслеживания
+            if user_id in active_tasks:
+                for task, url in active_tasks[user_id]:
+                    if url == url_to_remove:
+                        task.cancel()
+                        active_tasks[user_id].remove((task, url))
+            await update.message.reply_text(f"URL {url_to_remove} удален из отслеживания.")
+        else:
+            await update.message.reply_text("Указанный URL не найден в вашем списке отслеживания.")
+    except FileNotFoundError:
+        logger.error("Файл urls.txt не найден.")
+        await update.message.reply_text("Ошибка: файл с URL не найден.")
+
 # Настройка и запуск бота
 def main():
     load_allowed_ids()
@@ -334,6 +370,7 @@ def main():
     application.add_handler(CommandHandler("list", list_urls))
     application.add_handler(CommandHandler("tasks", tasks))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("remove", remove_url_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     async def async_main():
