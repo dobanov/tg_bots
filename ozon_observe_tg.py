@@ -20,21 +20,32 @@ httpx_logger.setLevel(logging.WARNING)  # Показывать только пр
 TELEGRAM_TOKEN = '111:AAA'  # Токен бота
 LIMIT = 3  # Количество отправляемых сообщений
 POLL_INTERVAL_SECONDS = 14400 # Интервал ожидания в секундах
+URLS_FILE = "urls.txt"  # Файл для хранения URL
+OZON_URL_PREFIXES = [
+    "https://www.ozon.ru/category/",
+    "https://www.ozon.ru/search/",
+    "https://www.ozon.ru/brand/",
+    "https://www.ozon.ru/collection/"
+]
+
 allowed_ids = []  # Список разрешенных ID пользователей
 active_tasks = {}  # Список активных задач для пользователей
 
-URLS_FILE = "urls.txt"  # Файл для хранения URL
+# Универсальная функция для работы с файлами
+def read_file_lines(filename):
+    try:
+        with open(filename, "r") as f:
+            return f.readlines()
+    except FileNotFoundError:
+        logger.error(f"Файл {filename} не найден.")
+        return []
 
 # Функция для загрузки разрешенных ID из файла
 def load_allowed_ids():
     global allowed_ids
-    try:
-        with open("ids.txt", "r") as f:
-            allowed_ids = [line.strip() for line in f]
-        logger.info("Файл ids.txt успешно загружен.")
-    except FileNotFoundError:
-        logger.error("Файл ids.txt не найден.")
-
+    allowed_ids = [line.strip() for line in read_file_lines("ids.txt")]
+    logger.info("Файл ids.txt успешно загружен.")
+	
 #Сохраняет URL для пользователя с временем последней отправки, игнорируя дубли по дате
 def save_url(user_id, url):
     # Проверяем наличие дубликата
@@ -44,46 +55,23 @@ def save_url(user_id, url):
         return False
 
     # Проверяем все строки в файле на наличие дубликатов
-    try:
-        with open(URLS_FILE, "r") as f:
-            lines = f.readlines()
-
-        for line in lines:
-            line = line.strip()
-            if not line or "|" not in line:
-                continue
-            try:
-                stored_user_id, stored_url, _ = line.split("|", 2)
-                if stored_user_id == user_id and stored_url == url:
-                    logger.info(f"URL {url} уже отслеживается для пользователя {user_id}.")
-                    return False
-            except ValueError as e:
-                logger.warning(f"Некорректная строка в файле: {line}. Детали: {e}")
-
-    except FileNotFoundError:
-        logger.error("Файл urls.txt не найден.")
-
-    # Текущая дата и время
+    lines = read_file_lines(URLS_FILE)
+    for line in lines:
+        stored_user_id, stored_url, _ = line.strip().split("|", 2)
+        if stored_user_id == user_id and stored_url == url:
+            logger.info(f"URL {url} уже отслеживается для пользователя {user_id}.")
+            return False
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    # Добавляем данные в файл
     with open(URLS_FILE, "a") as f:
         f.write(f"{user_id}|{url}|{current_time}\n")
-    logger.info(f"URL {url} добавлен для пользователя {user_id} с временем последней отправки {current_time}.")
+        logger.info(f"URL {url} добавлен для пользователя {user_id} с временем последней отправки {current_time}.")
     return True
 
 # Удаление URL из файла
 def remove_url(user_id):
-    try:
-        with open(URLS_FILE, "r") as f:
-            lines = f.readlines()
-        with open(URLS_FILE, "w") as f:
-            for line in lines:
-                if not line.startswith(f"{user_id}|"):
-                    f.write(line)
-        logger.info(f"URL для пользователя {user_id} удален.")
-    except FileNotFoundError:
-        logger.error("Файл urls.txt не найден.")
+    lines = read_file_lines(URLS_FILE)
+    write_file_lines(URLS_FILE, [line for line in lines if not line.startswith(f"{user_id}|")])
+    logger.info(f"URL для пользователя {user_id} удален.")
 
 #Получает URL и время последней отправки для пользователя.
 def get_url_for_user(user_id):
@@ -171,6 +159,7 @@ async def send_results(user_id, url):
         else:
             for item_message, img_url in results:
                 await send_text_to_telegram(user_id, item_message, img_url)
+        update_last_sent_time(user_id, url)
         await asyncio.sleep(POLL_INTERVAL_SECONDS)  # Ожидание
 
 # Функция для обновления времени последней отправки в файле
@@ -227,7 +216,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Проверка URL Ozon
-    if url.startswith("https://www.ozon.ru/category/") or url.startswith("https://www.ozon.ru/search/") or url.startswith("https://www.ozon.ru/brand/") or url.startswith("https://www.ozon.ru/collection/"):
+    if any(url.startswith(prefix) for prefix in OZON_URL_PREFIXES):
         # Сохраняем URL
         if save_url(user_id, url):
             # Инициализация задач, если их нет
@@ -248,7 +237,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("Этот URL уже отслеживается.")
     else:
-        await update.message.reply_text("Пожалуйста, отправьте корректный URL страницы Ozon (category, search или brand).")
+        await update.message.reply_text("Пожалуйста, отправьте корректный URL страницы Ozon (category, search, collection или brand).")
 
 # Обработчик команды /list
 async def list_urls(update: Update, context: ContextTypes.DEFAULT_TYPE):
