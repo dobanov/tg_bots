@@ -45,27 +45,6 @@ def load_allowed_ids():
     global allowed_ids
     allowed_ids = [line.strip() for line in read_file_lines("ids.txt")]
     logger.info("Файл ids.txt успешно загружен.")
-	
-#Сохраняет URL для пользователя с временем последней отправки, игнорируя дубли по дате
-def save_url(user_id, url):
-    # Проверяем наличие дубликата
-    existing_url, _ = get_url_for_user(user_id)  # Получаем только URL без даты
-    if existing_url == url:
-        logger.info(f"URL {url} уже отслеживается для пользователя {user_id}.")
-        return False
-
-    # Проверяем все строки в файле на наличие дубликатов
-    lines = read_file_lines(URLS_FILE)
-    for line in lines:
-        stored_user_id, stored_url, _ = line.strip().split("|", 2)
-        if stored_user_id == user_id and stored_url == url:
-            logger.info(f"URL {url} уже отслеживается для пользователя {user_id}.")
-            return False
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with open(URLS_FILE, "a") as f:
-        f.write(f"{user_id}|{url}|{current_time}\n")
-        logger.info(f"URL {url} добавлен для пользователя {user_id} с временем последней отправки {current_time}.")
-    return True
 
 # Удаление URL из файла
 def remove_url(user_id):
@@ -123,7 +102,7 @@ async def parse_page(url):
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
 
-    service = Service("/home/ubuntu/chromedriver/chromedriver")
+    service = Service("/path/to/chromedriver/chromedriver")
     driver = webdriver.Chrome(service=service, options=options)
 
     results = []
@@ -217,25 +196,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Проверка URL Ozon
     if any(url.startswith(prefix) for prefix in OZON_URL_PREFIXES):
-        # Сохраняем URL
-        if save_url(user_id, url):
-            # Инициализация задач, если их нет
-            if user_id not in active_tasks:
-                active_tasks[user_id] = []
-
-            # Проверка, отслеживается ли уже URL
+        # Проверка, отслеживается ли уже URL
+        if user_id in active_tasks:
             urls_tracked = [tracked_url for _, tracked_url in active_tasks[user_id]]
             if url in urls_tracked:
                 await update.message.reply_text("Этот URL уже отслеживается.")
                 return
 
-            # Запускаем задачу для нового URL
-            task = asyncio.create_task(send_results(user_id, url))
-            active_tasks[user_id].append((task, url))
+        # Сохраняем URL, если он еще не отслеживается
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(URLS_FILE, "a") as f:
+            f.write(f"{user_id}|{url}|{current_time}\n")
+            logger.info(f"URL {url} добавлен для пользователя {user_id} с временем последней отправки {current_time}.")
 
-            await update.message.reply_text("Я начал отслеживать эту страницу. Буду отправлять обновления!")
-        else:
-            await update.message.reply_text("Этот URL уже отслеживается.")
+        # Инициализация задач, если их нет
+        if user_id not in active_tasks:
+            active_tasks[user_id] = []
+
+        # Запускаем задачу для нового URL
+        task = asyncio.create_task(send_results(user_id, url))
+        active_tasks[user_id].append((task, url))
+        await update.message.reply_text("Я начал отслеживать эту страницу. Буду отправлять обновления!")
     else:
         await update.message.reply_text("Пожалуйста, отправьте корректный URL страницы Ozon (category, search, collection или brand).")
 
