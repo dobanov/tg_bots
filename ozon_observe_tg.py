@@ -226,20 +226,17 @@ async def list_urls(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Проверяем, есть ли отслеживаемые URL для пользователя
     urls = []
-    try:
-        with open(URLS_FILE, "r") as f:
-            for line in f:
-                line = line.strip()
-                if not line or "|" not in line:
-                    continue
-                try:
-                    stored_user_id, stored_url, timestamp = line.split("|", 2)
-                    if stored_user_id == user_id:
-                        urls.append(f"URL: {stored_url}\nПоследняя отправка: {timestamp}")
-                except ValueError:
-                    logger.warning(f"Некорректная строка: {line}")
-    except FileNotFoundError:
-        logger.error("Файл urls.txt не найден.")
+    lines = read_file_lines(URLS_FILE)
+    for line in lines:
+        line = line.strip()
+        if not line or "|" not in line:
+            continue
+        try:
+            stored_user_id, stored_url, timestamp = line.split("|", 2)
+            if stored_user_id == user_id:
+                urls.append(f"URL: {stored_url}\nПоследняя отправка: {timestamp}")
+        except ValueError:
+            logger.warning(f"Некорректная строка: {line}")
 
     if urls:
         # Формируем и отправляем список
