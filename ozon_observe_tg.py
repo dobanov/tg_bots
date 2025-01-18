@@ -1,12 +1,13 @@
 import logging
 import asyncio
+import re
+import requests
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-import requests
 from datetime import datetime
 
 # Настроим логирование
@@ -21,12 +22,7 @@ TELEGRAM_TOKEN = '111:AAA'  # Токен бота
 LIMIT = 3  # Количество отправляемых сообщений
 POLL_INTERVAL_SECONDS = 14400 # Интервал ожидания в секундах
 URLS_FILE = "urls.txt"  # Файл для хранения URL
-OZON_URL_PREFIXES = [
-    "https://www.ozon.ru/category/",
-    "https://www.ozon.ru/search/",
-    "https://www.ozon.ru/brand/",
-    "https://www.ozon.ru/collection/"
-]
+OZON_URL_PATTERN = re.compile(r"^https:\/\/(?:www\.)?ozon\.ru\/(?:category|search|collection|brand)\/", re.IGNORECASE)
 
 allowed_ids = []  # Список разрешенных ID пользователей
 active_tasks = {}  # Список активных задач для пользователей
@@ -195,7 +191,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Проверка URL Ozon
-    if any(url.startswith(prefix) for prefix in OZON_URL_PREFIXES):
+    if OZON_URL_PATTERN.match(url):
         # Проверка, отслеживается ли уже URL
         if user_id in active_tasks:
             urls_tracked = [tracked_url for _, tracked_url in active_tasks[user_id]]
