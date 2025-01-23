@@ -106,7 +106,7 @@ async def parse_page(url):
         driver.get(url)
         await asyncio.sleep(5)
         soup = BeautifulSoup(driver.page_source, "html.parser")
-        items = soup.find_all("div", class_="wi3_23", limit=LIMIT)
+        items = soup.find_all("div", class_="wi3_23", limit=LIMIT)  # Значения class_= переодически меняется на сайте озона, актуальное искать в <div data-index="0" class="
 
         for item in items:
             link_tag = item.find("a", class_="tile-clickable-element")
@@ -116,7 +116,7 @@ async def parse_page(url):
                 continue
             price_tag = item.find("span", class_="c3023-a1 tsHeadline500Medium c3023-b1 c3023-a6")
             price = price_tag.text.strip() if price_tag else "Цена не найдена"
-            img_tag = item.find("img", class_="x2i_23 b933-a")
+            img_tag = item.find("img", class_="x2i_23 b933-a") # Значения class_= переодически меняется на сайте озона, актуальное искать в <img loading="eager" ..
             img_url = img_tag["src"] if img_tag and img_tag.has_attr("src") else "Картинка не найдена"
             results.append((f"Ссылка: {full_url}\nЦена: {price}", img_url))
     except Exception as e:
