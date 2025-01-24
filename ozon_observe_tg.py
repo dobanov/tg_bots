@@ -120,7 +120,7 @@ async def parse_page(url):
             price = price_tag.text.strip() if price_tag else "Цена не найдена"
 
             # Ищем изображение с атрибутом loading равным "eager" или "lazy"
-            img_tag = item.find("img", attrs={"loading": lambda x: x in ["eager", "lazy"]})
+            img_tag = item.find("img", attrs={"loading": ("eager", "lazy")})
             img_url = img_tag["src"] if img_tag and img_tag.has_attr("src") else "Картинка не найдена"
             results.append((f"Ссылка: {full_url}\nЦена: {price}", img_url))
     except Exception as e:
