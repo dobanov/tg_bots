@@ -14,6 +14,7 @@ from datetime import datetime
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 # Отключаем логи для библиотеки httpx
 httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)  # Показывать только предупреждения и ошибки
@@ -41,12 +42,6 @@ def load_allowed_ids():
     global allowed_ids
     allowed_ids = [line.strip() for line in read_file_lines("ids.txt")]
     logger.info("Файл ids.txt успешно загружен.")
-
-# Удаление URL из файла
-def remove_url(user_id):
-    lines = read_file_lines(URLS_FILE)
-    write_file_lines(URLS_FILE, [line for line in lines if not line.startswith(f"{user_id}|")])
-    logger.info(f"URL для пользователя {user_id} удален.")
 
 #Получает URL и время последней отправки для пользователя.
 def get_url_for_user(user_id):
@@ -118,8 +113,6 @@ async def parse_page(url):
                 continue
             price_tag = item.find("span", class_="tsHeadline500Medium")
             price = price_tag.text.strip() if price_tag else "Цена не найдена"
-
-            # Ищем изображение с атрибутом loading равным "eager" или "lazy"
             img_tag = item.find("img", attrs={"loading": ("eager", "lazy")})
             img_url = img_tag["src"] if img_tag and img_tag.has_attr("src") else "Картинка не найдена"
             results.append((f"Ссылка: {full_url}\nЦена: {price}", img_url))
@@ -269,7 +262,15 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for task, _ in active_tasks[user_id]:
             task.cancel()  # Останавливаем задачу
         del active_tasks[user_id]
-        remove_url(user_id)  # Удаляем URL из файла
+
+        # Чтение, фильтрация и запись строк в файл
+        with open(URLS_FILE, 'r') as file:
+            lines = file.readlines()
+
+        with open(URLS_FILE, 'w') as file:
+            file.writelines(line for line in lines if not line.startswith(f"{user_id}|"))
+
+        logger.info(f"URL для пользователя {user_id} удален.")
         await update.message.reply_text("Я больше не буду отслеживать ваш URL.")
     else:
         await update.message.reply_text("У вас нет активных задач для остановки.")
