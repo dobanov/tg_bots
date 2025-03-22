@@ -23,7 +23,7 @@ httpx_logger.setLevel(logging.WARNING)  # Показывать только пр
 
 # Ваш Telegram токен
 TOKEN = "YOUR:TOKEN"
-YOUTUBE_REGEX = r"^https://www\.youtube\.com/watch\?v=[a-zA-Z0-9_-]{1,15}$"
+YOUTUBE_REGEX = r"^https://www\.youtube\.com/(watch\?v=|live/)[a-zA-Z0-9_-]{1,15}$"
 
 # Время задержки между запросами (3 минуты)
 TIME_LIMIT = 180
